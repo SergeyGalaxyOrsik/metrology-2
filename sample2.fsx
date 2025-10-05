@@ -45,9 +45,46 @@ let main argv =                                                 // CL    CLI
                             k <- k + 1
 
                         System.Environment.Exit 0
+    
+    printf "post = "
+    let s2 = Console.ReadLine()
+    let mutable m = 0
+    match System.Int32.TryParse s2 with                         
+    | true, v -> m <- v                                         // 18     1
+    | _ -> m <- 0                                               // 18     1
+
+    if m % 3 = 0 then                                           // 19     1
+        printfn "div by 3"
+    elif m % 3 = 1 then                                         // 20     2
+        printfn "rem 1"
+    else                                                        // 20     2
+        printfn "rem 2"
+
+    for j in 0 .. 3 do                                          // 21     1
+        if j = m then                                           // 22     2
+            printfn "eq %d" j
+        else                                                    // 22     2
+            printfn "neq %d" j
+
+    let mutable t = 0
+    while t < 2 do                                              // 23     1
+        if (m + t) % 2 = 0 then                                 // 24     2
+            printfn "even sum"
+        else                                                    // 24     2
+            printfn "odd sum"
+        t <- t + 1
+
+    let res =
+        match m with                                            // 25     1
+        | x when x < 0 -> "neg"                                 // 26     2
+        | 0 -> "zero"                                           // 27     3
+        | 1 | 2 -> "small"                                      // 28     4
+        | _ -> "other"                                          // 28     4
+    printfn "res=%s" res
+
     0
 
-// Общее число операторов N = 48
-// Абсолютная сложность CL = 17
-// Относительная сложность cl = CL/N = 17 / 48 = 0,354
+// Общее число операторов N = 89
+// Абсолютная сложность CL = 28
+// Относительная сложность cl = CL/N = 28 / 89 = 0,315
 // Максимальная вложенность CLI = 10

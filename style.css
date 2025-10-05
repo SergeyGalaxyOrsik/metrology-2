@@ -97,6 +97,21 @@ table#ops-table thead th {
   text-align: left;
 }
 
+table#halstead-ops {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 12px;
+}
+table#halstead-ops th, table#halstead-ops td {
+  border: 1px solid #1f2937;
+  padding: 6px 8px;
+}
+table#halstead-ops thead th {
+  background: #0b1020;
+  color: #cbd5e1;
+  text-align: left;
+}
+
 @media (max-width: 900px) {
   .grid { grid-template-columns: 1fr; }
 }

@@ -17,11 +17,11 @@
   const CONTROL_WEIGHTS = [
     { pattern: /\bif\b/g, weight: 1, kind: 'if' },
     { pattern: /\belif\b/g, weight: 1, kind: 'elif' },
-    { pattern: /\belse\b/g, weight: 1, kind: 'else' },
-    { pattern: /\bmatch\b/g, weight: 2, kind: 'match' },
-    { pattern: /\bwith\b/g, weight: 0, kind: 'with' }, // used to begin match-cases section
-    { pattern: /\bwhen\b/g, weight: 0.5, kind: 'when' },
-    { pattern: /\b\|\s*[_A-Za-z0-9'`]+/g, weight: 1, kind: 'case' },
+    { pattern: /\belse\b/g, weight: 0, kind: 'else' }, // else does not increase CL
+    { pattern: /\bmatch\b/g, weight: 0, kind: 'match' }, // CL from match is (cases-1)
+    { pattern: /\bwith\b/g, weight: 0, kind: 'with' },
+    { pattern: /\bwhen\b/g, weight: 0, kind: 'when' },
+    { pattern: /\b\|\s*[_A-Za-z0-9'`]+/g, weight: 0, kind: 'case' }, // counted per block
     { pattern: /\bfor\b/g, weight: 1, kind: 'for' },
     { pattern: /\bwhile\b/g, weight: 1, kind: 'while' },
   ];
@@ -63,7 +63,8 @@
 
     // Track indentation-based nesting and keyword-based openings
     const indentStack = [];
-    let inMatchBlock = false; // becomes true after seeing 'match' until we see a 'with'
+    let inMatchBlock = false; // true after 'match', until cases section ends
+    let currentMatchCases = 0;
 
     // Stats per operator kind
     const countsByKind = Object.create(null);
@@ -86,6 +87,15 @@
         depth = Math.max(0, depth - 1);
       }
 
+      // Finalize a previous match block if cases ended
+      if (inMatchBlock && !/^\|/.test(trimmed)) {
+        if (currentMatchCases > 0) {
+          absolute += Math.max(0, currentMatchCases - 1);
+        }
+        inMatchBlock = false;
+        currentMatchCases = 0;
+      }
+
       // Detect control tokens and update depth and absolute
       for (const rule of CONTROL_WEIGHTS) {
         if (!rule.pattern.global) {
@@ -100,18 +110,19 @@
           if (rule.kind === 'case') {
             if (!/^\|/.test(trimmed) && !inMatchBlock) continue;
           }
-          absolute += rule.weight;
+          absolute += rule.weight; // most weights are 0 except if/elif/for/while
           found.push({ line: i + 1, kind: rule.kind, text: trimmed });
           countsByKind[rule.kind] = (countsByKind[rule.kind] || 0) + 1;
 
-          // Increase depth for opening constructs
-          if (['if', 'elif', 'else', 'for', 'while', 'match'].includes(rule.kind)) {
+          // Increase depth for opening constructs (elif/else do not open a new block)
+          if (['if', 'for', 'while', 'match'].includes(rule.kind)) {
             depth++;
             indentStack.push(indent);
             maxDepth = Math.max(maxDepth, depth);
           }
-          if (['case'].includes(rule.kind)) {
-            // cases considered at same depth; do not push additional indent
+          if (rule.kind === 'case') {
+            // count cases for current match block; do not change depth
+            if (inMatchBlock) currentMatchCases++;
             maxDepth = Math.max(maxDepth, depth);
           }
 
@@ -126,14 +137,29 @@
         }
       }
 
+      // Line-based case detection to catch all F# patterns (e.g., "| 6 | 0 ->" or "| _ ->")
+      if (inMatchBlock && /^\|/.test(trimmed)) {
+        currentMatchCases++;
+        countsByKind['case'] = (countsByKind['case'] || 0) + 1;
+        found.push({ line: i + 1, kind: 'case', text: trimmed });
+        maxDepth = Math.max(maxDepth, depth);
+      }
+
       // Reset inMatchBlock heuristically when indentation decreases significantly
       if (inMatchBlock && indentStack.length === 0) {
+        if (currentMatchCases > 0) {
+          absolute += Math.max(0, currentMatchCases - 1);
+        }
         inMatchBlock = false;
+        currentMatchCases = 0;
       }
     }
 
     const statements = countStatements(pre);
-    const relative = absolute / statements;
+    // Halstead-like operators (ported tokenizer/classifier)
+    const halstead = halsteadOperators(source);
+    const operatorN = (halstead.operator_frequencies || []).reduce((s, kv) => s + (Array.isArray(kv) ? kv[1] : 0), 0);
+    const relative = absolute / Math.max(1, operatorN);
     // Build operator stats array
     const opStats = Object.keys(countsByKind).sort().map(kind => {
       const count = countsByKind[kind] || 0;
@@ -141,16 +167,14 @@
       const contribution = count * weight;
       return { kind, count, weight, contribution };
     });
-    // Halstead-like operators (ported tokenizer/classifier)
-    const halstead = halsteadOperators(source);
-    return { absolute, relative, depth: maxDepth, statements, found, opStats, halstead };
+    return { absolute, relative, depth: maxDepth, statements, found, opStats, halstead, operatorN };
   }
 
   function renderResults(r) {
     document.getElementById('abs').textContent = r.absolute.toFixed(2);
     document.getElementById('rel').textContent = r.relative.toFixed(3);
     document.getElementById('depth').textContent = String(r.depth);
-    document.getElementById('ops').textContent = String(r.statements);
+    document.getElementById('ops').textContent = String(r.operatorN || 0);
     const lines = r.found.map(x => `${x.line.toString().padStart(4, ' ')}  ${x.kind}  ::  ${x.text}`);
     document.getElementById('found').textContent = lines.join('\n');
     // Render operator table

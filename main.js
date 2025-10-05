@@ -82,7 +82,8 @@
 
       // Adjust indentation-based stack
       const indent = currentIndent(line);
-      while (indentStack.length && indentStack[indentStack.length - 1] > indent) {
+      // Pop blocks that ended or siblings at same indent to avoid stacking sequential constructs
+      while (indentStack.length && indentStack[indentStack.length - 1] >= indent) {
         indentStack.pop();
         depth = Math.max(0, depth - 1);
       }

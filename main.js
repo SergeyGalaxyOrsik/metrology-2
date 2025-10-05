@@ -65,6 +65,7 @@
     const indentStack = [];
     let inMatchBlock = false; // true after 'match', until cases section ends
     let currentMatchCases = 0;
+    let caseDepth = 0; // pseudo-depth inside match that grows with each case
 
     // Stats per operator kind
     const countsByKind = Object.create(null);
@@ -87,6 +88,9 @@
         indentStack.pop();
         depth = Math.max(0, depth - 1);
       }
+
+      // Update max depth for the current line BEFORE opening new blocks on this line
+      maxDepth = Math.max(maxDepth, depth + (inMatchBlock ? caseDepth : 0));
 
       // Finalize a previous match block if cases ended
       if (inMatchBlock && !/^\|/.test(trimmed)) {
@@ -115,24 +119,22 @@
           found.push({ line: i + 1, kind: rule.kind, text: trimmed });
           countsByKind[rule.kind] = (countsByKind[rule.kind] || 0) + 1;
 
-          // Increase depth for opening constructs (elif/else do not open a new block)
-          if (['if', 'for', 'while', 'match'].includes(rule.kind)) {
+          // Increase depth only for 'while'. 'if/elif/else/match/for' do not increase CLI per spec.
+          if (['while'].includes(rule.kind)) {
             depth++;
             indentStack.push(indent);
-            maxDepth = Math.max(maxDepth, depth);
           }
           if (rule.kind === 'case') {
-            // count cases for current match block; do not change depth
-            if (inMatchBlock) currentMatchCases++;
-            maxDepth = Math.max(maxDepth, depth);
+            // handled in line-based case detection below
           }
 
           if (rule.kind === 'match') {
             inMatchBlock = true;
+            caseDepth = 0;
           }
           if (rule.kind === 'with' && inMatchBlock) {
             // with after match: start of case section (no extra depth)
-            maxDepth = Math.max(maxDepth, depth);
+            maxDepth = Math.max(maxDepth, depth + caseDepth);
             // keep inMatchBlock true for subsequent '|' cases
           }
         }
@@ -140,10 +142,18 @@
 
       // Line-based case detection to catch all F# patterns (e.g., "| 6 | 0 ->" or "| _ ->")
       if (inMatchBlock && /^\|/.test(trimmed)) {
-        currentMatchCases++;
-        countsByKind['case'] = (countsByKind['case'] || 0) + 1;
-        found.push({ line: i + 1, kind: 'case', text: trimmed });
-        maxDepth = Math.max(maxDepth, depth);
+        const isDefault = /^\|\s*_\s*(?:when\b.*)?->/.test(trimmed);
+        if (!isDefault) {
+          currentMatchCases++;
+          if (currentMatchCases > 1) {
+            // Первая непустая ветка не увеличивает CLI; дальнейшие — увеличивают
+            caseDepth++;
+          }
+          countsByKind['case'] = (countsByKind['case'] || 0) + 1;
+        }
+        // Отображаем в списке найденных конструкций пометку для дефолтного кейса
+        found.push({ line: i + 1, kind: isDefault ? 'case_default' : 'case', text: trimmed });
+        maxDepth = Math.max(maxDepth, depth + caseDepth);
       }
 
       // Reset inMatchBlock heuristically when indentation decreases significantly
@@ -153,6 +163,7 @@
         }
         inMatchBlock = false;
         currentMatchCases = 0;
+        caseDepth = 0;
       }
     }
 

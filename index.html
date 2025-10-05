@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Лабораторная: разбор языка F# и метрика Джилба</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>ЛР: Разбор языка программирования F# и метрика Джилба</h1>
+    <p>Сайт содержит пример программы на F# и парсер для расчёта абсолютной и относительной сложности по Джилбу, а также максимального уровня вложенности.</p>
+  </header>
+
+  <main>
+    <section class="grid">
+      <div class="panel">
+        <h2>Пример программы на F#</h2>
+        <div class="toolbar">
+          <button id="load-sample">Загрузить пример</button>
+          <button id="analyze">Анализировать</button>
+          <label class="file-label">
+            <input type="file" id="file-input" accept=".fs,.fsx,.txt">
+            или выбрать файл .fs/.fsx
+          </label>
+        </div>
+        <textarea id="code" spellcheck="false" placeholder="Вставьте сюда код на F# или загрузите файл"></textarea>
+      </div>
+
+      <div class="panel">
+        <h2>Результаты анализа</h2>
+        <div class="results">
+          <div class="stat"><span>Абсолютная сложность (A):</span><strong id="abs"></strong></div>
+          <div class="stat"><span>Относительная сложность (R=A/N):</span><strong id="rel"></strong></div>
+          <div class="stat"><span>Макс. уровень вложенности:</span><strong id="depth"></strong></div>
+          <div class="stat"><span>Число операторов (N):</span><strong id="ops"></strong></div>
+        </div>
+        <h3>Найденные конструкции</h3>
+        <pre id="found"></pre>
+      </div>
+    </section>
+
+    <section>
+      <h2>Методика расчёта</h2>
+      <ul>
+        <li>Абсолютная сложность A = суммарный вес управляющих конструкций.</li>
+        <li>Относительная сложность R = A / N, где N — число операторов.</li>
+        <li>Уровень вложенности — максимальная глубина вложенных блоков.</li>
+      </ul>
+      <p>Для F# учитываются: if/elif/else, match/with, for/while, рекурсивные и хвостовые циклы через <code>seq</code>/<code>List.iter</code> не учитываются. Блоки определяются по ключевым словам и отступам.</p>
+    </section>
+  </main>
+
+  <footer>
+    <small>© 2025. Учебный пример. F# и метрика Джилба.</small>
+  </footer>
+
+  <script src="main.js"></script>
+  <script src="sample.fsx" type="text/plain" id="sample-code"></script>
+  <script>
+    // Загрузка встроенного sample через тэг script[type=text/plain]
+    document.getElementById('load-sample').addEventListener('click', () => {
+      const sample = document.getElementById('sample-code').textContent.trim();
+      document.getElementById('code').value = sample;
+    });
+
+    // Загрузка файла
+    document.getElementById('file-input').addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const text = await file.text();
+      document.getElementById('code').value = text;
+    });
+
+    // Анализ
+    document.getElementById('analyze').addEventListener('click', () => {
+      window.runAnalysis();
+    });
+  </script>
+</body>
+</html>
+
+

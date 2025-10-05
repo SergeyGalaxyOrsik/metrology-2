@@ -64,7 +64,8 @@
     // Track indentation-based nesting and keyword-based openings
     const indentStack = [];
     let inMatchBlock = false; // true after 'match', until cases section ends
-    let currentMatchCases = 0;
+    let currentMatchCases = 0; // non-default cases inside current match
+    let hasDefaultCase = false; // whether '| _ ->' appears in current match
     let caseDepth = 0; // pseudo-depth inside match that grows with each case
 
     // Stats per operator kind
@@ -94,11 +95,13 @@
 
       // Finalize a previous match block if cases ended
       if (inMatchBlock && !/^\|/.test(trimmed)) {
-        if (currentMatchCases > 0) {
-          absolute += Math.max(0, currentMatchCases - 1);
+        const totalCases = currentMatchCases + (hasDefaultCase ? 1 : 0);
+        if (totalCases > 0) {
+          absolute += Math.max(0, totalCases - 1);
         }
         inMatchBlock = false;
         currentMatchCases = 0;
+        hasDefaultCase = false;
       }
 
       // Detect control tokens and update depth and absolute
@@ -131,6 +134,8 @@
           if (rule.kind === 'match') {
             inMatchBlock = true;
             caseDepth = 0;
+            currentMatchCases = 0;
+            hasDefaultCase = false;
           }
           if (rule.kind === 'with' && inMatchBlock) {
             // with after match: start of case section (no extra depth)
@@ -150,6 +155,8 @@
             caseDepth++;
           }
           countsByKind['case'] = (countsByKind['case'] || 0) + 1;
+        } else {
+          hasDefaultCase = true;
         }
         // Отображаем в списке найденных конструкций пометку для дефолтного кейса
         found.push({ line: i + 1, kind: isDefault ? 'case_default' : 'case', text: trimmed });
@@ -158,11 +165,13 @@
 
       // Reset inMatchBlock heuristically when indentation decreases significantly
       if (inMatchBlock && indentStack.length === 0) {
-        if (currentMatchCases > 0) {
-          absolute += Math.max(0, currentMatchCases - 1);
+        const totalCases = currentMatchCases + (hasDefaultCase ? 1 : 0);
+        if (totalCases > 0) {
+          absolute += Math.max(0, totalCases - 1);
         }
         inMatchBlock = false;
         currentMatchCases = 0;
+        hasDefaultCase = false;
         caseDepth = 0;
       }
     }

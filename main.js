@@ -65,6 +65,10 @@
     const indentStack = [];
     let inMatchBlock = false; // becomes true after seeing 'match' until we see a 'with'
 
+    // Stats per operator kind
+    const countsByKind = Object.create(null);
+    const weightsByKind = CONTROL_WEIGHTS.reduce((acc, r) => { acc[r.kind] = r.weight; return acc; }, {});
+
     function currentIndent(s) {
       const m = /^(\s*)/.exec(s);
       return m ? m[1].length : 0;
@@ -98,6 +102,7 @@
           }
           absolute += rule.weight;
           found.push({ line: i + 1, kind: rule.kind, text: trimmed });
+          countsByKind[rule.kind] = (countsByKind[rule.kind] || 0) + 1;
 
           // Increase depth for opening constructs
           if (['if', 'elif', 'else', 'for', 'while', 'match'].includes(rule.kind)) {
@@ -129,7 +134,14 @@
 
     const statements = countStatements(pre);
     const relative = absolute / statements;
-    return { absolute, relative, depth: maxDepth, statements, found };
+    // Build operator stats array
+    const opStats = Object.keys(countsByKind).sort().map(kind => {
+      const count = countsByKind[kind] || 0;
+      const weight = Number(weightsByKind[kind] ?? 0);
+      const contribution = count * weight;
+      return { kind, count, weight, contribution };
+    });
+    return { absolute, relative, depth: maxDepth, statements, found, opStats };
   }
 
   function renderResults(r) {
@@ -139,6 +151,21 @@
     document.getElementById('ops').textContent = String(r.statements);
     const lines = r.found.map(x => `${x.line.toString().padStart(4, ' ')}  ${x.kind}  ::  ${x.text}`);
     document.getElementById('found').textContent = lines.join('\n');
+    // Render operator table
+    const tbody = document.querySelector('#ops-table tbody');
+    if (tbody) {
+      tbody.innerHTML = '';
+      const sorted = (r.opStats || []).slice().sort((a, b) => a.kind.localeCompare(b.kind));
+      for (const s of sorted) {
+        const tr = document.createElement('tr');
+        const tdKind = document.createElement('td'); tdKind.textContent = s.kind;
+        const tdCount = document.createElement('td'); tdCount.textContent = String(s.count);
+        const tdWeight = document.createElement('td'); tdWeight.textContent = String(s.weight);
+        const tdContrib = document.createElement('td'); tdContrib.textContent = s.contribution.toFixed(2);
+        tr.appendChild(tdKind); tr.appendChild(tdCount); tr.appendChild(tdWeight); tr.appendChild(tdContrib);
+        tbody.appendChild(tr);
+      }
+    }
   }
 
   window.runAnalysis = () => {

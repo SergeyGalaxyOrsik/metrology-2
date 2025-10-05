@@ -82,6 +82,21 @@ pre#found {
   max-height: 360px;
 }
 
+table#ops-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 12px;
+}
+table#ops-table th, table#ops-table td {
+  border: 1px solid #1f2937;
+  padding: 6px 8px;
+}
+table#ops-table thead th {
+  background: #0b1020;
+  color: #cbd5e1;
+  text-align: left;
+}
+
 @media (max-width: 900px) {
   .grid { grid-template-columns: 1fr; }
 }

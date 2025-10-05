@@ -132,10 +132,45 @@
           }
 
           if (rule.kind === 'match') {
+            // Immediate lookahead to count cases for CL and CLI reliably
             inMatchBlock = true;
             caseDepth = 0;
             currentMatchCases = 0;
             hasDefaultCase = false;
+
+            let j = i + 1;
+            let localNonDefault = 0;
+            let localHasDefault = false;
+            while (j < lines.length) {
+              const t = lines[j].trim();
+              if (!/^\|/.test(t)) break;
+              const isDefaultLocal = /^\|\s*_\s*(?:when\b.*)?->/.test(t);
+              if (isDefaultLocal) {
+                localHasDefault = true;
+                found.push({ line: j + 1, kind: 'case_default', text: t });
+              } else {
+                localNonDefault++;
+                // Track CLI pseudo-depth: first non-default does not add depth, subsequent ones do
+                if (localNonDefault > 1) caseDepth++;
+                countsByKind['case'] = (countsByKind['case'] || 0) + 1;
+                found.push({ line: j + 1, kind: 'case', text: t });
+              }
+              j++;
+            }
+            const totalCasesLocal = localNonDefault + (localHasDefault ? 1 : 0);
+            if (totalCasesLocal > 0) {
+              absolute += Math.max(0, totalCasesLocal - 1);
+            }
+            // Update max depth using accumulated caseDepth for this block
+            maxDepth = Math.max(maxDepth, depth + caseDepth);
+            // Skip the scanned case lines and close the block
+            inMatchBlock = false;
+            currentMatchCases = 0;
+            hasDefaultCase = false;
+            // Move outer loop index to the last scanned case line
+            if (j > i + 1) {
+              i = j - 1;
+            }
           }
           if (rule.kind === 'with' && inMatchBlock) {
             // with after match: start of case section (no extra depth)
@@ -164,11 +199,9 @@
       }
 
       // Reset inMatchBlock heuristically when indentation decreases significantly
-      if (inMatchBlock && indentStack.length === 0) {
+      if (inMatchBlock && indentStack.length === 0 && (currentMatchCases > 0 || hasDefaultCase)) {
         const totalCases = currentMatchCases + (hasDefaultCase ? 1 : 0);
-        if (totalCases > 0) {
-          absolute += Math.max(0, totalCases - 1);
-        }
+        absolute += Math.max(0, totalCases - 1);
         inMatchBlock = false;
         currentMatchCases = 0;
         hasDefaultCase = false;

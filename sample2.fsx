@@ -21,15 +21,16 @@ let main argv =                                                 // CL    CLI
                         else                                    // 8      6
                             printfn "positive"
 
-                        let dayName =
-                            match (n % 7) with
-                            | 1 -> "Mon"                        // 9      5
-                            | 2 -> "Tue"                        // 10     6
-                            | 3 -> "Wed"                        // 11     7
-                            | 4 -> "Thu"                        // 12     8
-                            | 5 -> "Fri"                        // 13     9
-                            | 6 | 0 -> "Weekend"                // 14     10
-                            | _ -> "Unknown"                    // 14     10
+                        if true then
+                            let dayName =
+                                match (n % 7) with
+                                | 1 -> "Mon"                        // 9      5
+                                | 2 -> "Tue"                        // 10     6
+                                | 3 -> "Wed"                        // 11     7
+                                | 4 -> "Thu"                        // 12     8
+                                | 5 -> "Fri"                        // 13     9
+                                | 6 | 0 -> "Weekend"                // 14     10
+                                | _ -> "Unknown"                    // 14     10
 
                         printfn "%s" dayName
 
@@ -75,11 +76,11 @@ let main argv =                                                 // CL    CLI
         t <- t + 1
 
     let res =
-        match m with                                            // 25     1
-        | x when x < 0 -> "neg"                                 // 26     2
-        | 0 -> "zero"                                           // 27     3
-        | 1 | 2 -> "small"                                      // 28     4
-        | _ -> "other"                                          // 28     4
+        match m with                                            
+        | x when x < 0 -> "neg"                                 // 25     2
+        | 0 -> "zero"                                           // 26     3
+        | 1 | 2 -> "small"                                      // 27     4
+        | _ -> "other"                                          // 27     4
     printfn "res=%s" res
 
     0

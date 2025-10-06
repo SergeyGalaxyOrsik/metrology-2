@@ -122,8 +122,8 @@
           found.push({ line: i + 1, kind: rule.kind, text: trimmed });
           countsByKind[rule.kind] = (countsByKind[rule.kind] || 0) + 1;
 
-          // Increase depth only for 'while'. 'if/elif/else/match/for' do not increase CLI per spec.
-          if (['while'].includes(rule.kind)) {
+          // Increase depth for while and for explicit if/elif blocks; else/match do not.
+          if (['while', 'if', 'elif'].includes(rule.kind)) {
             depth++;
             indentStack.push(indent);
           }
